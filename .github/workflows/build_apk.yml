@@ -28,24 +28,27 @@ jobs:
       # This project ships as Dart source only (lib/, pubspec.yaml).
       # `flutter create .` fills in the missing android/ folder (and
       # ios/web/etc, which we don't need for an APK) around the
-      # existing code — it does NOT touch or overwrite lib/.
+      # existing code. IMPORTANT: `flutter create --overwrite` can also
+      # overwrite pubspec.yaml with Flutter's bare default template —
+      # so we back it up first and restore our real one right after.
       #
-      # We force a clean slate here (delete any old android/ folder,
-      # pass --overwrite) so a stale or manually-edited Gradle file
-      # committed in a previous debugging attempt can never linger and
-      # conflict with the freshly generated one. This step should always
-      # be the ONLY source of truth for android/ — never hand-edit or
-      # commit files under android/ in this repo.
+      # We also force a clean slate on android/ (delete then regenerate)
+      # so a stale or manually-edited Gradle file committed in a previous
+      # debugging attempt can never linger and conflict with the freshly
+      # generated one. This step should always be the ONLY source of
+      # truth for android/ — never hand-edit or commit files under it.
       - name: Scaffold Android platform files (clean)
         run: |
+          cp pubspec.yaml pubspec.yaml.bak
           rm -rf android
           flutter create . --platforms=android --org com.farmershope --project-name shamba_smart --overwrite
+          mv pubspec.yaml.bak pubspec.yaml
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Generate Isar code (models/*.g.dart)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: flutter pub run build_runner build --delete-conflicting-outputs
 
       - name: Build release APK
         # These come from your repo's Settings → Secrets and variables →
