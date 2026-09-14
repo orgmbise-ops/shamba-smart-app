@@ -25,7 +25,7 @@ dependencies:
   # template ("Could not get unknown property 'flutter'" when building) —
   # pinning it here directly forces pub to resolve a version whose
   # Android side matches the modern template `flutter create` generates.
-  app_links: ^7.0.0
+    app_links: 6.2.1
 
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
