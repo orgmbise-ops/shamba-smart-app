@@ -23,14 +23,24 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned deliberately, NOT "channel: stable". The `isar` package
+          # (3.1.0) is a few years old and its bundled analyzer can't parse
+          # syntax used by very new Dart SDKs — "stable" drifts forward
+          # over time and will eventually point at a Flutter version whose
+          # Dart SDK is too new for isar to handle, breaking build_runner
+          # even though nothing in this repo changed. Pinning avoids that.
+          flutter-version: '3.24.0'
           channel: 'stable'
 
       # This project ships as Dart source only (lib/, pubspec.yaml).
       # `flutter create .` fills in the missing android/ folder (and
       # ios/web/etc, which we don't need for an APK) around the
-      # existing code. IMPORTANT: `flutter create --overwrite` can also
-      # overwrite pubspec.yaml with Flutter's bare default template —
-      # so we back it up first and restore our real one right after.
+      # existing code. IMPORTANT: `flutter create --overwrite` also
+      # silently overwrites pubspec.yaml AND lib/main.dart with
+      # Flutter's bare default template — so we back both up first and
+      # restore our real ones right after. This bit us in a previous
+      # run (build_runner was failing to parse Flutter's own generated
+      # main.dart, not our code).
       #
       # We also force a clean slate on android/ (delete then regenerate)
       # so a stale or manually-edited Gradle file committed in a previous
@@ -40,9 +50,11 @@ jobs:
       - name: Scaffold Android platform files (clean)
         run: |
           cp pubspec.yaml pubspec.yaml.bak
+          cp lib/main.dart lib/main.dart.bak
           rm -rf android
           flutter create . --platforms=android --org com.farmershope --project-name shamba_smart --overwrite
           mv pubspec.yaml.bak pubspec.yaml
+          mv lib/main.dart.bak lib/main.dart
 
       - name: Install dependencies
         run: flutter pub get
