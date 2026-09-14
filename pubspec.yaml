@@ -22,10 +22,14 @@ dependencies:
   # supabase_flutter pulls in app_links transitively (for auth redirect
   # links) but doesn't force a recent-enough version. Old app_links
   # releases ship Android build files written for a pre-AGP8 Gradle
-  # template ("Could not get unknown property 'flutter'" when building) —
-  # pinning it here directly forces pub to resolve a version whose
-  # Android side matches the modern template `flutter create` generates.
-    app_links: 6.2.1
+  # template ("Could not get unknown property 'flutter'" when building).
+  # Pinned to an EXACT version, not a caret range: 6.2.1 is specifically
+  # where app_links added AGP8/compileSdk34 support (fixing the Gradle
+  # error) while still supporting our pinned older Flutter/Dart SDK —
+  # 7.0.0+ needs Dart >=3.10, which is too new for isar's analyzer, and
+  # 6.4.1 (the next patch after 6.2.1) regressed something in its own
+  # Gradle settings that brought the same error back. Don't use ^ here.
+  app_links: 6.2.1
 
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
