@@ -17,7 +17,7 @@ dependencies:
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
   path_provider: ^2.1.3
-   supabase_flutter: ^2.5.6
+  supabase_flutter: ^2.5.6
 
   # supabase_flutter pulls in app_links transitively (for auth redirect
   # links) but doesn't force a recent-enough version. Old app_links
@@ -26,7 +26,7 @@ dependencies:
   # pinning it here directly forces pub to resolve a version whose
   # Android side matches the modern template `flutter create` generates.
   app_links: ^7.0.0
-  
+
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
   flutter_blue_plus: ^1.32.12
