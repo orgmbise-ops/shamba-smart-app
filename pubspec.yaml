@@ -33,9 +33,11 @@ dependencies:
 
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
-  # 1.37.0 is no longer published on pub.dev. Use the currently
-  # available release so dependency resolution succeeds in CI.
-  flutter_blue_plus: ^2.3.12
+  # 2.3.17 includes the Android Gradle/Flutter 3.22+ compatibility fix.
+  # 2.3.12 resolves flutter_blue_plus_android 9.0.3, which fails during
+  # generated Flutter 3.24 release builds with a null substring() call and
+  # a missing compileSdkVersion.
+  flutter_blue_plus: ^2.3.17
   mqtt_client: ^10.3.1
 
   # -- Security & utilities --
