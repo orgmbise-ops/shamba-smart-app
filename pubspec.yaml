@@ -33,10 +33,15 @@ dependencies:
 
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
-  # 2.3.12 resolves flutter_blue_plus_android 9.0.3, which fails during
-  # generated Flutter 3.24 release builds with a null substring() call and
-  # a missing compileSdkVersion.
-  flutter_blue_plus: ^2.3.12
+  # flutter_blue_plus 2.3.12 resolves flutter_blue_plus_android 9.0.3,
+  # which breaks with Flutter 3.24's generated Android Gradle setup.
+  # The Android package fails during configuration with:
+  # - "Could not get unknown property 'flutter'"
+  # - "Cannot invoke method substring() on null object"
+  # - "compileSdkVersion is not specified"
+  # Pin 2.2.1 exactly; it resolves to flutter_blue_plus_android 8.0.2,
+  # which is compatible with this project and with Flutter 3.24.0.
+  flutter_blue_plus: 2.2.1
   mqtt_client: ^10.3.1
 
   # -- Security & utilities --
