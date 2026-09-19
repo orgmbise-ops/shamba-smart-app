@@ -76,31 +76,50 @@ jobs:
 
           python3 - "$package_dir" <<'PY'
           import pathlib
-          import re
           import sys
 
           package_dir = pathlib.Path(sys.argv[1])
           gradle = package_dir / "android" / "build.gradle"
           text = gradle.read_text()
 
-          # Replace the obsolete Flutter Gradle extension reference.
+          # Fix the deprecated Flutter property reference.
           text = text.replace("flutter.compileSdkVersion", "34")
 
-          # Remove the legacy projectsEvaluated block that calls substring()
-          # on a null/legacy property and crashes under Flutter 3.24.
-          text = re.sub(
-              r"\s*gradle\.projectsEvaluated\s*\{.*?\n\s*\}\s*\n",
-              "\n",
-              text,
-              flags=re.S,
-          )
+          # Remove the legacy block safely without leaving a dangling brace.
+          marker = "gradle.projectsEvaluated"
+          start = text.find(marker)
+          if start != -1:
+              brace_start = text.find("{", start)
+              if brace_start == -1:
+                  raise SystemExit("Found gradle.projectsEvaluated without opening brace")
+
+              depth = 0
+              end = None
+              for index in range(brace_start, len(text)):
+                  ch = text[index]
+                  if ch == "{":
+                      depth += 1
+                  elif ch == "}":
+                      depth -= 1
+                      if depth == 0:
+                          end = index + 1
+                          break
+
+              if end is None:
+                  raise SystemExit("Unbalanced gradle.projectsEvaluated closure")
+
+              text = text[:start].rstrip() + "\n" + text[end:].lstrip()
+
+          # Final safety check
+          if text.count("{") != text.count("}"):
+              raise SystemExit("Patched Gradle file has unbalanced braces")
 
           gradle.write_text(text)
           print(f"Patched {gradle}")
           PY
 
           echo "--- Patched file preview ---"
-          sed -n '1,140p' "$package_dir/android/build.gradle"
+          sed -n '1,180p' "$package_dir/android/build.gradle"
 
       - name: Generate Isar code (models/*.g.dart)
         run: flutter pub run build_runner build --delete-conflicting-outputs
