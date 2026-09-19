@@ -59,6 +59,49 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch legacy Bluetooth Android Gradle script
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          package_dir="$(find "$PUB_CACHE/hosted/pub.dev" \
+            -maxdepth 1 \
+            -type d \
+            -name 'flutter_blue_plus_android-*' \
+            | sort -V \
+            | tail -n 1)"
+
+          test -n "$package_dir"
+          test -f "$package_dir/android/build.gradle"
+
+          python3 - "$package_dir" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          package_dir = pathlib.Path(sys.argv[1])
+          gradle = package_dir / "android" / "build.gradle"
+          text = gradle.read_text()
+
+          # Replace the obsolete Flutter Gradle extension reference.
+          text = text.replace("flutter.compileSdkVersion", "34")
+
+          # Remove the legacy projectsEvaluated block that calls substring()
+          # on a null/legacy property and crashes under Flutter 3.24.
+          text = re.sub(
+              r"\s*gradle\.projectsEvaluated\s*\{.*?\n\s*\}\s*\n",
+              "\n",
+              text,
+              flags=re.S,
+          )
+
+          gradle.write_text(text)
+          print(f"Patched {gradle}")
+          PY
+
+          echo "--- Patched file preview ---"
+          sed -n '1,140p' "$package_dir/android/build.gradle"
+
       - name: Generate Isar code (models/*.g.dart)
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
