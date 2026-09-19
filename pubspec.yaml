@@ -19,29 +19,23 @@ dependencies:
   path_provider: ^2.1.3
   supabase_flutter: ^2.5.6
 
-  # supabase_flutter pulls in app_links transitively (for auth redirect
-  # links) but doesn't force a recent-enough version. Old app_links
-  # releases ship Android build files written for a pre-AGP8 Gradle
-  # template ("Could not get unknown property 'flutter'" when building).
-  # Pinned to an EXACT version, not a caret range: 6.2.1 is specifically
-  # where app_links added AGP8/compileSdk34 support (fixing the Gradle
-  # error) while still supporting our pinned older Flutter/Dart SDK —
-  # 7.0.0+ needs Dart >=3.10, which is too new for isar's analyzer, and
-  # 6.4.1 (the next patch after 6.2.1) regressed something in its own
-  # Gradle settings that brought the same error back. Don't use ^ here.
+  # Pin this package because newer releases require a newer Dart SDK,
+  # while older releases contain incompatible legacy Android Gradle files.
   app_links: 6.2.1
 
   # -- Connectivity & hardware --
   connectivity_plus: ^6.0.3
-  # flutter_blue_plus 2.3.12 resolves flutter_blue_plus_android 9.0.3,
-  # which breaks with Flutter 3.24's generated Android Gradle setup.
-  # The Android package fails during configuration with:
-  # - "Could not get unknown property 'flutter'"
-  # - "Cannot invoke method substring() on null object"
-  # - "compileSdkVersion is not specified"
-  # Pin 2.2.1 exactly; it resolves to flutter_blue_plus_android 8.0.2,
-  # which is compatible with this project and with Flutter 3.24.0.
+
+  # Pin exactly. flutter_blue_plus 2.2.1 resolves to
+  # flutter_blue_plus_android 8.2.1. That Android package contains
+  # legacy Gradle references to:
+  #   - flutter.compileSdkVersion
+  #   - gradle.projectsEvaluated
+  #
+  # The build workflow patches those legacy references after pub get
+  # and before Gradle runs, making this version usable with Flutter 3.24.0.
   flutter_blue_plus: 2.2.1
+
   mqtt_client: ^10.3.1
 
   # -- Security & utilities --
