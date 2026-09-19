@@ -28,8 +28,9 @@ class BleBridge {
       final completer = Completer<BluetoothDevice?>();
       final scanSub = FlutterBluePlus.onScanResults.listen((results) {
         for (final r in results) {
-          final uuids =
-              r.advertisementData.serviceUuids.map((g) => g.str.toUpperCase()).toList();
+          final uuids = r.advertisementData.serviceUuids
+              .map((g) => g.str.toUpperCase())
+              .toList();
           if (uuids.any((u) => u.contains(_serviceUuid)) && !completer.isCompleted) {
             completer.complete(r.device);
           }
@@ -42,13 +43,21 @@ class BleBridge {
       await scanSub.cancel();
       if (device == null) return false;
 
-      await device.connect(timeout: const Duration(seconds: 10));
+      // flutter_blue_plus 2.x requires the license argument on connect.
+      await device.connect(
+        timeout: const Duration(seconds: 10),
+        license: License.free,
+      );
       final services = await device.discoverServices();
-      final svc = services.firstWhere((s) => s.uuid.str.toUpperCase().contains(_serviceUuid));
-      _telemetryChar =
-          svc.characteristics.firstWhere((c) => c.uuid.str.toUpperCase().contains(_telemetryCharUuid));
-      _pumpChar =
-          svc.characteristics.firstWhere((c) => c.uuid.str.toUpperCase().contains(_pumpCharUuid));
+      final svc = services.firstWhere(
+        (s) => s.uuid.str.toUpperCase().contains(_serviceUuid),
+      );
+      _telemetryChar = svc.characteristics.firstWhere(
+        (c) => c.uuid.str.toUpperCase().contains(_telemetryCharUuid),
+      );
+      _pumpChar = svc.characteristics.firstWhere(
+        (c) => c.uuid.str.toUpperCase().contains(_pumpCharUuid),
+      );
 
       await _telemetryChar!.setNotifyValue(true);
       _sub = _telemetryChar!.onValueReceived.listen(_telemetryController.add);
