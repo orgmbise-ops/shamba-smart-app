@@ -1,62 +1,4 @@
-name: Build Android APK
-
-# Run this manually from the "Actions" tab in GitHub, or it runs
-# automatically every time you push to the main branch.
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Java (required by the Android build tools)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          # Pinned deliberately, NOT "channel: stable". The `isar` package
-          # (3.1.0) is a few years old and its bundled analyzer can't parse
-          # syntax used by very new Dart SDKs — "stable" drifts forward
-          # over time and will eventually point at a Flutter version whose
-          # Dart SDK is too new for isar to handle, breaking build_runner
-          # even though nothing in this repo changed. Pinning avoids that.
-          flutter-version: '3.24.0'
-          channel: 'stable'
-
-      # This project ships as Dart source only (lib/, pubspec.yaml).
-      # `flutter create .` fills in the missing android/ folder (and
-      # ios/web/etc, which we don't need for an APK) around the
-      # existing code. IMPORTANT: `flutter create --overwrite` also
-      # silently overwrites pubspec.yaml AND lib/main.dart with
-      # Flutter's bare default template — so we back both up first and
-      # restore our real ones right after. This bit us in a previous
-      # run (build_runner was failing to parse Flutter's own generated
-      # main.dart, not our code).
-      #
-      # We also force a clean slate on android/ (delete then regenerate)
-      # so a stale or manually-edited Gradle file committed in a previous
-      # debugging attempt can never linger and conflict with the freshly
-      # generated one. This step should always be the ONLY source of
-      # truth for android/ — never hand-edit or commit files under it.
-      - name: Scaffold Android platform files (clean)
-        run: |
-          cp pubspec.yaml pubspec.yaml.bak
-          cp lib/main.dart lib/main.dart.bak
-          rm -rf android
-          flutter create . --platforms=android --org com.farmershope --project-name shamba_smart --overwrite
-          mv pubspec.yaml.bak pubspec.yaml
-          mv lib/main.dart.bak lib/main.dart
-
-      - name: Install dependencies
+        - name: Install dependencies
         run: flutter pub get
 
       - name: Patch legacy Bluetooth Android Gradle script
@@ -64,28 +6,39 @@ jobs:
         run: |
           set -euo pipefail
 
-          package_dir="$(find "$PUB_CACHE/hosted/pub.dev" \
+          cache_root="${PUB_CACHE:-$HOME/.pub-cache}"
+          package_dir="$(find "$cache_root/hosted/pub.dev" \
             -maxdepth 1 \
             -type d \
             -name 'flutter_blue_plus_android-*' \
+            2>/dev/null \
             | sort -V \
-            | tail -n 1)"
+            | tail -n 1 || true)"
 
-          test -n "$package_dir"
-          test -f "$package_dir/android/build.gradle"
+          if [ -z "${package_dir:-}" ]; then
+            echo "Could not find flutter_blue_plus_android in $cache_root/hosted/pub.dev"
+            echo "Checked candidates:"
+            find "$cache_root" -maxdepth 4 -type d -name 'flutter_blue_plus_android-*' 2>/dev/null || true
+            exit 1
+          fi
 
-          python3 - "$package_dir" <<'PY'
+          gradle="$package_dir/android/build.gradle"
+          if [ ! -f "$gradle" ]; then
+            echo "Missing Gradle file: $gradle"
+            exit 1
+          fi
+
+          python3 - "$gradle" <<'PY'
           import pathlib
           import sys
 
-          package_dir = pathlib.Path(sys.argv[1])
-          gradle = package_dir / "android" / "build.gradle"
+          gradle = pathlib.Path(sys.argv[1])
           text = gradle.read_text()
 
-          # Fix the deprecated Flutter property reference.
+          # Fix deprecated Flutter property reference
           text = text.replace("flutter.compileSdkVersion", "34")
 
-          # Remove the legacy block safely without leaving a dangling brace.
+          # Remove legacy gradle.projectsEvaluated block safely
           marker = "gradle.projectsEvaluated"
           start = text.find(marker)
           if start != -1:
@@ -110,7 +63,6 @@ jobs:
 
               text = text[:start].rstrip() + "\n" + text[end:].lstrip()
 
-          # Final safety check
           if text.count("{") != text.count("}"):
               raise SystemExit("Patched Gradle file has unbalanced braces")
 
@@ -120,26 +72,3 @@ jobs:
 
           echo "--- Patched file preview ---"
           sed -n '1,180p' "$package_dir/android/build.gradle"
-
-      - name: Generate Isar code (models/*.g.dart)
-        run: flutter pub run build_runner build --delete-conflicting-outputs
-
-      - name: Build release APK
-        # These come from your repo's Settings → Secrets and variables →
-        # Actions (see README). MQTT_* are optional — leave them unset in
-        # GitHub if you don't have a broker yet; the app just won't attempt
-        # a cloud/web connection to the ESP32 until you add them later.
-        run: |
-          flutter build apk --release \
-            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
-            --dart-define=MQTT_BROKER=${{ secrets.MQTT_BROKER }} \
-            --dart-define=MQTT_USERNAME=${{ secrets.MQTT_USERNAME }} \
-            --dart-define=MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: shamba-smart-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 14
